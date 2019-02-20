@@ -17,15 +17,19 @@ def load_data(path):
         data = pkl.load(f)
     return data
 
+
 def dump_data(path, data):
     with open(path, 'wb') as f:
-        pkl.dump(data,f)
+        pkl.dump(data, f)
+
 
 # ==================================================
 # Data loading params
 tf.flags.DEFINE_float("dev_sample_percentage", .1, "Percentage of the training data to use for validation")
-tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity.pos", "Data source for the positive data.")
-tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity.neg", "Data source for the negative data.")
+tf.flags.DEFINE_string("positive_data_file", "./data/rt-polaritydata/rt-polarity.pos",
+                       "Data source for the positive data.")
+tf.flags.DEFINE_string("negative_data_file", "./data/rt-polaritydata/rt-polarity.neg",
+                       "Data source for the negative data.")
 # Data loading from json
 json_path = 'configs.json'
 with open(json_path, 'rb') as f:
@@ -37,10 +41,9 @@ test_input_path = configs['test_input_path']
 test_output_path = configs['test_output_path']
 xdim = configs['x_dim']
 ydim = configs['y_dim']
-num_epochs = configs['iter'] #Number of training epochs (default: 200)
+num_epochs = configs['iter']  # Number of training epochs (default: 200)
 loss_threshold = configs['threshold']
 loss_margin = configs['margin']
-
 
 gensim_model_path = configs['gensim_model_path']
 # Model Hyperparameters
@@ -62,6 +65,8 @@ tf.flags.DEFINE_string("score_function", "euclidean", " one of cosine, euclidean
 tf.flags.DEFINE_boolean("allow_soft_placement", True, "Allow device soft device placement")
 tf.flags.DEFINE_boolean("log_device_placement", False, "Log placement of ops on devices")
 FLAGS = tf.flags.FLAGS
+
+
 # FLAGS._parse_flags()
 # print("\nParameters:")
 # for attr, value in sorted(FLAGS.__flags.items()):
@@ -78,9 +83,9 @@ def preprocess():
     # Build vocabulary
     max_document_length = max([len(x.split(" ")) for x in x_text])
     tokenized_x = [x_.split() for x_ in x_text]
-    word_vects, vocab = data_helpers.train_word2vect(tokenized_x,gensim_model_path, xdim)
-    idx2word, word2idx, word_embedding = data_helpers.process_embeddings(word_vects, vocab,xdim )
-    x_text = data_helpers.sentence_indexing(tokenized_x,word2idx)
+    word_vects, vocab = data_helpers.train_word2vect(tokenized_x, gensim_model_path, xdim)
+    idx2word, word2idx, word_embedding = data_helpers.process_embeddings(word_vects, vocab, xdim)
+    x_text = data_helpers.sentence_indexing(tokenized_x, word2idx)
     x = data_helpers.pad_indexed_sentence(x_text, max_document_length)
 
     # Randomly shuffle data
@@ -95,14 +100,13 @@ def preprocess():
     x_train, x_dev = x_shuffled[:dev_sample_index], x_shuffled[dev_sample_index:]
     y_train, y_dev = y_shuffled[:dev_sample_index], y_shuffled[dev_sample_index:]
 
-    # FIXME read data from json
     if os.path.exists(train_input_path):
         x_train = load_data(train_input_path)
         y_train = load_data(train_output_path)
         x_dev = load_data(test_input_path)
         y_dev = load_data(test_output_path)
     else:
-        # save train/test data
+        # FIXME save train/test data
         dump_data(train_input_path, x_train)
         dump_data(train_output_path, y_train)
         dump_data(test_input_path, x_dev)
@@ -110,29 +114,24 @@ def preprocess():
 
     del x, y, x_shuffled, y_shuffled
     print("Vocabulary Size: {:d}".format(len(vocab)))
-    # x_train, y_train = x_train[:train_size], y_train[:train_size]
-    # x_dev, y_dev = x_dev[:test_size], y_dev[:test_size]
     print("Train/Dev split: {:d}/{:d}".format(len(y_train), len(y_dev)))
-    # y_train = np.reshape(y_train, (y_train.shape[0],1))
-    # y_dev = np.reshape(y_dev, (y_dev.shape[0],1))
-    # print(y_train.shape, y_dev.shape)
     return x_train, y_train, x_dev, y_dev, word2idx, word_embedding
+
 
 def train(x_train, y_train, vocab, word_embedding, x_dev, y_dev):
     # Training
     # ==================================================
     with tf.Graph().as_default():
         session_conf = tf.ConfigProto(
-          allow_soft_placement=FLAGS.allow_soft_placement,
-          log_device_placement=FLAGS.log_device_placement)
+            allow_soft_placement=FLAGS.allow_soft_placement,
+            log_device_placement=FLAGS.log_device_placement)
         sess = tf.Session(config=session_conf)
         with sess.as_default():
             cnn = TextCNN(
                 sequence_length=x_train.shape[1],
-                num_classes=2,
                 vocab_size=len(vocab),
                 embedding_size=xdim,
-                embedding_weights= word_embedding,
+                embedding_weights=word_embedding,
                 ydim=ydim,
                 filter_sizes=list(map(int, FLAGS.filter_sizes.split(","))),
                 num_filters=FLAGS.num_filters,
@@ -192,9 +191,9 @@ def train(x_train, y_train, vocab, word_embedding, x_dev, y_dev):
                 A single training step
                 """
                 feed_dict = {
-                  cnn.input_x: x_batch,
-                  cnn.input_y: y_batch,
-                  cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
+                    cnn.input_x: x_batch,
+                    cnn.input_y: y_batch,
+                    cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
                 }
                 # _, step, summaries, loss, accuracy, \
                 # negscore, poscore, negscore_, poscore_, \
@@ -210,7 +209,6 @@ def train(x_train, y_train, vocab, word_embedding, x_dev, y_dev):
                     feed_dict)
                 time_str = datetime.datetime.now().isoformat()
                 print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
-                # print ( negscore, poscore, negscore_, poscore_)
 
                 train_summary_writer.add_summary(summaries, step)
 
@@ -219,26 +217,17 @@ def train(x_train, y_train, vocab, word_embedding, x_dev, y_dev):
                 Evaluates model on a dev set
                 """
                 feed_dict = {
-                  cnn.input_x: x_batch,
-                  cnn.input_y: y_batch,
-                  cnn.dropout_keep_prob: 1.0
+                    cnn.input_x: x_batch,
+                    cnn.input_y: y_batch,
+                    cnn.dropout_keep_prob: 1.0
                 }
 
-                # step, inputy, correct_predictions,summaries, loss, accuracy,\
-                #     negscore, poscore, negscore_,poscore_,\
-                #     prediction= sess.run(
-                #     [global_step, cnn.input_y,cnn.correct_predictions, dev_summary_op, cnn.loss, cnn.accuracy,
-                #      cnn.neg_scores,cnn.pos_scores, cnn.neg_scores_,
-                #      cnn.pos_scores_,cnn.predictions
-                #     ],
-                #     feed_dict)
-                # time_str = datetime.datetime.now().isoformat()
-                # print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
-                # print ( negscore[:10], poscore[:10], negscore_, poscore_)
-                #
-                print("{}: step {}, negscore {:g}, poscore {:g}, negs_ {:g}, pos_ {:g}".format
-                      (time_str, step, negscore[:10], poscore[:10], negscore_[:10],poscore_[:10]))
-                print(correct_predictions[:10] )
+                step, summaries, loss, accuracy, prediction = sess.run(
+                    [global_step, dev_summary_op, cnn.loss, cnn.accuracy,
+                     cnn.predictions],
+                    feed_dict)
+                time_str = datetime.datetime.now().isoformat()
+                print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
 
                 if writer:
                     writer.add_summary(summaries, step)
@@ -259,9 +248,11 @@ def train(x_train, y_train, vocab, word_embedding, x_dev, y_dev):
                     path = saver.save(sess, checkpoint_prefix, global_step=current_step)
                     print("Saved model checkpoint to {}\n".format(path))
 
+
 def main(argv=None):
-    x_train, y_train, x_dev, y_dev, word2idx,word_embedding = preprocess()
-    train(x_train, y_train, word2idx,word_embedding, x_dev, y_dev)
+    x_train, y_train, x_dev, y_dev, word2idx, word_embedding = preprocess()
+    train(x_train, y_train, word2idx, word_embedding, x_dev, y_dev)
+
 
 if __name__ == '__main__':
     tf.app.run()
