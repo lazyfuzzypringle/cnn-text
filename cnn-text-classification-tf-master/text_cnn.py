@@ -12,7 +12,6 @@ def cosine(x1, x2):
 
 def euclidean(x1, x2):
     print('using eucidean')
-
     # return tf.sqrt(tf.reduce_sum(tf.square((x1-x2))))
     return tf.reduce_sum(tf.multiply((x1-x2),(x1-x2)),-1)
 
@@ -58,8 +57,8 @@ class TextCNN(object):
             with tf.name_scope("conv-maxpool-%s" % filter_size):
                 # Convolution Layer
                 filter_shape = [filter_size, embedding_size, 1, num_filters]
-                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W")
-                b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name="b")
+                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1), name="W",trainable=True)
+                b = tf.Variable(tf.constant(0.1, shape=[num_filters]), name="b",trainable=True)
                 conv = tf.nn.conv2d(
                     self.embedded_chars_expanded,
                     W,
@@ -82,33 +81,33 @@ class TextCNN(object):
         self.h_pool = tf.concat(pooled_outputs, 3)
         self.h_pool_flat = tf.reshape(self.h_pool, [-1, num_filters_total])
 
-        with tf.name_scope("loss_anchor"):
-            # self.xp = tf.Variable('xp',shape=[ydim], initializer=tf.random_normal_initializer())
-            #self.xn = tf.get_variable('xn',shape=[1, ydim], initializer=tf.contrib.layers.xavier_initializer())
-            #self.xp = tf.get_variable('xp',shape=[1, ydim], initializer=tf.contrib.layers.xavier_initializer())
-            self.xn = tf.constant(0.1,shape=[1,ydim])
-            self.xp = tf.constant(-0.1, shape=[1,ydim])
+
+        # self.xp = tf.Variable('xp',shape=[ydim], initializer=tf.random_normal_initializer())
+        self.xn = tf.get_variable('xn',shape=[1, ydim], trainable=True, initializer=tf.contrib.layers.xavier_initializer())
+        self.xp = tf.get_variable('xp',shape=[1, ydim], trainable=True, initializer=tf.contrib.layers.xavier_initializer())
+        #self.xn = tf.constant(0.1,shape=[1,ydim])
+        #self.xp = tf.constant(0.1, shape=[1,ydim])
 
         # Add dropout
         with tf.name_scope("dropout"):
             self.h_drop = tf.nn.dropout(self.h_pool_flat, self.dropout_keep_prob)
 
         # Final (unnormalized) scores and predictions
-        with tf.name_scope("output"):
-            W = tf.get_variable(
-                "W",
-                shape=[num_filters_total, ydim],
-                initializer=tf.contrib.layers.xavier_initializer())
-            b = tf.Variable(tf.constant(0.1, shape=[ydim]), name="b")
-            l2_loss += tf.nn.l2_loss(W)
-            l2_loss += tf.nn.l2_loss(b)
-            self.logit = tf.nn.xw_plus_b(self.h_drop, W, b) #batch, ydim
-            batch_size = tf.shape(self.logit)[0]
-            xp = tf.tile(self.xp, [batch_size,1])
-            xn = tf.tile(self.xn, [batch_size,1])
-            self.pos_scores = SCORE_FUNC[score_function](self.logit, xp)
-            self.neg_scores = SCORE_FUNC[score_function](self.logit, xn)
-            self.predictions = tf.cast(tf.less(self.pos_scores,self.neg_scores), dtype=tf.float32)
+
+        W = tf.get_variable(
+            "W_output",
+            shape=[num_filters_total, ydim],
+            initializer=tf.contrib.layers.xavier_initializer())
+        b = tf.Variable(tf.constant(0.1, shape=[ydim]), name="b_output")
+        l2_loss += tf.nn.l2_loss(W)
+        l2_loss += tf.nn.l2_loss(b)
+        self.logit = tf.nn.xw_plus_b(self.h_drop, W, b) #batch, ydim
+        batch_size = tf.shape(self.logit)[0]
+        xp = tf.tile(self.xp, [batch_size,1])
+        xn = tf.tile(self.xn, [batch_size,1])
+        self.pos_scores = SCORE_FUNC[score_function](self.logit, xp)
+        self.neg_scores = SCORE_FUNC[score_function](self.logit, xn)
+        self.predictions = tf.cast(tf.less(self.pos_scores + margin,self.neg_scores), dtype=tf.float32)
 
         # FIXME loss
         with tf.name_scope("loss"):
@@ -133,6 +132,5 @@ class TextCNN(object):
         # Accuracy
         with tf.name_scope("accuracy"):
             batch_size = tf.shape(self.input_y)[0]
-            self.correct_predictions = tf.equal(self.predictions, tf.reshape(self.input_y,[batch_size] )
-)
+            self.correct_predictions = tf.equal(self.predictions, tf.reshape(self.input_y,[batch_size]))
             self.accuracy = tf.reduce_mean(tf.cast(self.correct_predictions, "float"), name="accuracy")

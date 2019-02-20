@@ -55,6 +55,7 @@ tf.flags.DEFINE_integer("batch_size", 256, "Batch Size (default: 64)")
 tf.flags.DEFINE_integer("evaluate_every", 100, "Evaluate model on dev set after this many steps (default: 100)")
 tf.flags.DEFINE_integer("checkpoint_every", 100, "Save model after this many steps (default: 100)")
 tf.flags.DEFINE_integer("num_checkpoints", 5, "Number of checkpoints to store (default: 5)")
+# FIXME here score function options
 tf.flags.DEFINE_string("score_function", "euclidean", " one of cosine, euclidean, default:cosine.")
 
 # Misc Parameters
@@ -140,7 +141,7 @@ def train(x_train, y_train, vocab, word_embedding, x_dev, y_dev):
 
             # Define Training procedure
             global_step = tf.Variable(0, name="global_step", trainable=False)
-            optimizer = tf.train.AdamOptimizer(1e-5)
+            optimizer = tf.train.AdamOptimizer(1e-4)
             # optimizer = tf.train.GradientDescentOptimizer(1e-3)
             grads_and_vars = optimizer.compute_gradients(cnn.loss)
             train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
@@ -195,18 +196,18 @@ def train(x_train, y_train, vocab, word_embedding, x_dev, y_dev):
                   cnn.input_y: y_batch,
                   cnn.dropout_keep_prob: FLAGS.dropout_keep_prob
                 }
-                _, step, summaries, loss, accuracy, \
-                negscore, poscore, negscore_, poscore_, \
-                prediction = sess.run(
-                    [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy,
-                     cnn.neg_scores, cnn.pos_scores, cnn.neg_scores_,
-                     cnn.pos_scores_, cnn.predictions
-                     ],
-                    feed_dict)
-
-                # _, step, summaries, loss, accuracy = sess.run(
-                #     [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy],
+                # _, step, summaries, loss, accuracy, \
+                # negscore, poscore, negscore_, poscore_, \
+                # prediction = sess.run(
+                #     [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy,
+                #      cnn.neg_scores, cnn.pos_scores, cnn.neg_scores_,
+                #      cnn.pos_scores_, cnn.predictions
+                #      ],
                 #     feed_dict)
+
+                _, step, summaries, loss, accuracy = sess.run(
+                    [train_op, global_step, train_summary_op, cnn.loss, cnn.accuracy],
+                    feed_dict)
                 time_str = datetime.datetime.now().isoformat()
                 print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
                 # print ( negscore, poscore, negscore_, poscore_)
@@ -222,21 +223,22 @@ def train(x_train, y_train, vocab, word_embedding, x_dev, y_dev):
                   cnn.input_y: y_batch,
                   cnn.dropout_keep_prob: 1.0
                 }
-                step, inputy, correct_predictions,summaries, loss, accuracy,\
-                    negscore, poscore, negscore_,poscore_,\
-                    prediction= sess.run(
-                    [global_step, cnn.input_y,cnn.correct_predictions, dev_summary_op, cnn.loss, cnn.accuracy,
-                     cnn.neg_scores,cnn.pos_scores, cnn.neg_scores_,
-                     cnn.pos_scores_,cnn.predictions
-                    ],
-                    feed_dict)
-                time_str = datetime.datetime.now().isoformat()
-                print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
-                # print ( negscore[:10], poscore[:10], negscore_, poscore_)
 
-                # print("{}: step {}, negscore {:g}, poscore {:g}, negs_ {:g}, pos_ {:g}".format
-                #       (time_str, step, negscore[:10], poscore[:10], negscore_[:10],poscore_[:10]))
-                print(prediction[:10],inputy[:10],correct_predictions[:10] )
+                # step, inputy, correct_predictions,summaries, loss, accuracy,\
+                #     negscore, poscore, negscore_,poscore_,\
+                #     prediction= sess.run(
+                #     [global_step, cnn.input_y,cnn.correct_predictions, dev_summary_op, cnn.loss, cnn.accuracy,
+                #      cnn.neg_scores,cnn.pos_scores, cnn.neg_scores_,
+                #      cnn.pos_scores_,cnn.predictions
+                #     ],
+                #     feed_dict)
+                # time_str = datetime.datetime.now().isoformat()
+                # print("{}: step {}, loss {:g}, acc {:g}".format(time_str, step, loss, accuracy))
+                # print ( negscore[:10], poscore[:10], negscore_, poscore_)
+                #
+                print("{}: step {}, negscore {:g}, poscore {:g}, negs_ {:g}, pos_ {:g}".format
+                      (time_str, step, negscore[:10], poscore[:10], negscore_[:10],poscore_[:10]))
+                print(correct_predictions[:10] )
 
                 if writer:
                     writer.add_summary(summaries, step)
