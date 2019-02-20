@@ -1,0 +1,12 @@
+{
+  "x_dim":128,
+  "y_dim":10,
+  "margin": 1,
+  "train_input_path": "./data/x_train.pkl",
+  "train_output_path": "./data/y_train.pkl",
+  "test_input_path": "./data/x_dev.pkl",
+  "test_output_path": "./data/y_dev.pkl",
+  "iter": 200,
+  "threshold": 1e-5,
+  "gensim_model_path":"./data/word2vect_model.pkl"
+}
